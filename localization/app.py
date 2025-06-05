@@ -1,68 +1,85 @@
-from flask import Flask
+from flask import Flask, request, g
 from flask_babel import Babel, _, ngettext
 
-# --- Basic Flask App Setup ---
+# Initialize Flask app
 app = Flask(__name__)
-# For Flask-Babel, you'd typically configure language settings, e.g.:
+
+# --- Flask-Babel Configuration ---
 app.config['BABEL_DEFAULT_LOCALE'] = 'en'
+# Assuming 'translations' directory is at the project root,
+# and app.py is in a 'localization' subdirectory.
+# If app.py is at the project root, this would be './translations'
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = '../translations'
 app.config['LANGUAGES'] = {
     'en': 'English',
-    'es': 'Español',
     'fr': 'Français'
+    # Add other supported languages here
 }
+
 babel = Babel(app)
 
-# --- Example Global Variables (or they could be in functions/routes) ---
-# These are the strings we want to mark for translation.
+# --- Locale Selector Function ---
+# This function is called by Babel for each request to determine the language to use.
+@babel.localeselector
+def get_locale():
+    # 1. Try to get language from user-specific settings if available
+    #    (e.g., user profile, session)
+    # user = getattr(g, 'user', None)
+    # if user is not None and user.locale in app.config['LANGUAGES']:
+    #     return user.locale
 
-# Simple string marked for translation using _()
+    # 2. Try to get language from URL parameters
+    # lang_from_url = request.args.get('lang')
+    # if lang_from_url and lang_from_url in app.config['LANGUAGES']:
+    #     return lang_from_url
+
+    # 3. Otherwise, try to use the browser's language preference
+    return request.accept_languages.best_match(list(app.config['LANGUAGES'].keys()))
+
+# --- Strings Marked for Translation (from previous tasks) ---
+# These can be defined globally, within functions, or wherever needed.
+# The _() and ngettext() calls will now use the selected locale.
+
 WELCOME_MESSAGE = _("Welcome to our application!")
 LOGIN_PROMPT = _("Please log in to continue.")
 ERROR_NOT_FOUND = _("Error: The requested page was not found.")
 
-# Example function that might return a translatable string
 def get_status_message(is_success):
     if is_success:
         return _("Operation completed successfully.")
     else:
         return _("Operation failed. Please try again.")
 
-# Example usage of ngettext() for pluralization
 def get_item_count_message(number_of_items):
-    # The ngettext function will choose the correct string based on number_of_items.
-    # The `%(num)d` is a placeholder for the number.
-    # Note: In Flask-Babel, you can often pass the number directly for interpolation.
     message_template = ngettext("You have %(num)d item.",
                                 "You have %(num)d items.",
                                 number_of_items)
     return message_template % {'num': number_of_items}
 
-# --- Example Usage (e.g., in a Flask route, or just for demonstration) ---
-# In a real Flask app, these would be part of your routes or views.
-if __name__ == '__main__':
-    # Simulate different scenarios
-    current_items = 1
-    print("--- Simulating Application Output ---")
-    print(WELCOME_MESSAGE)  # This will be "Welcome to our application!" initially
-    print(get_status_message(True))
-    print(get_item_count_message(current_items))
+# --- Example Flask Routes ---
+@app.route('/')
+def index():
+    # Example from Task 7 description
+    greeting = _("Hello, World!") # A new string example for this task
 
-    current_items = 5
-    print(get_item_count_message(current_items))
+    # Using one of our pre-defined translated strings
+    # You can also pass variables to translated strings if they are formatted accordingly
+    # e.g., _("Welcome, %(user_name)s!", user_name="Guest")
+    return f"""
+        <h1>{greeting}</h1>
+        <p>{WELCOME_MESSAGE}</p>
+        <p>{get_status_message(True)}</p>
+        <p>{get_item_count_message(1)}</p>
+        <p>{get_item_count_message(5)}</p>
+        <p>Try adding <code>?hl=fr</code> or <code>Accept-Language: fr</code> in request headers to see French translations.</p>
+        <p>Current locale: {get_locale()}</p>
+    """
 
-    # In a real Flask app, you might have something like:
-    # @app.route('/')
-    # def home():
-    #     greeting = _("Hello, User!")
-    #     items = 3
-    #     item_info = ngettext("You have %(num)d new message.",
-    #                          "You have %(num)d new messages.",
-    #                          items) % {'num': items}
-    #     return f"{greeting} {item_info}"
+@app.route('/login')
+def login_page():
+    return f"<p>{LOGIN_PROMPT}</p>"
 
-    # To actually run this as a Flask app (optional for just seeing translations):
-    # app.run(debug=True)
-    print("--- End of Simulation ---")
-    print("\nTo see translations, you would run Babel to extract these strings,")
-    print("translate them, compile them, and then run the app in the context")
-    print("of a specific locale (e.g., by setting the locale in Flask-Babel).")
+# --- Main execution ---
+if __name__ == "__main__":
+    # Make sure debug=False for production
+    app.run(debug=True)
